@@ -99,7 +99,7 @@ see_if_size_to_allocate_is_much_less_than_the_size_of_the_block:
 
 separate_the_block: 
   mov x6, x3                  /* x6 has the original size of the block */
-  add x4, x4, #size_block     
+  add x15, x4, #size_block
   add x7, x2, x4              /* x7 now points to the end of the new block */
 
   mov x15, #1
