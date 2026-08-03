@@ -12,6 +12,7 @@
   struct block{
     size_t size,
     int is_occ,
+    block *prev
     block *next
   }
 */
@@ -174,10 +175,8 @@ coalesc_left:
 
   str x4, [x3, #next]         /* the next of the prev now is the next of the current freeing block */
   str x3, [x4, #prev]  
-  ret 
+  B end_free
 
-skip_prev_update:
-  ret
 
 
 coalesc_right:
@@ -194,7 +193,10 @@ coalesc_right:
   BEQ skip_prev_update
 
   str x1, [x4, #prev]
-  ret
+  B end_free
+
+skip_prev_update:
+  B end_free
   
   
 

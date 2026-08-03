@@ -17,10 +17,13 @@ void coalesc(void *ptr, void *ptr1)
    struct block *b = (struct block *)((char *)ptr - sizeof(struct block));
    struct block *b1 = (struct block *)((char *)ptr1 - sizeof(struct block));
    printf("ptr1: %p\n", ptr);
-   free(ptr);
-   printf("herer\n");
    free(ptr1);
-   printf("here\n");
+   printf("is_occ ptr1: %d\n", b1->is_occ);
+   free(ptr);
+   printf("is_occ ptr: %d\n", b->is_occ);
+    printf("ptr1: %p, ptr2: %p\n", b->next, b1->next);
+    printf ("ptr1: %ld, ptr2: %ld\n", b->size, b1->size);
+    printf("ptr1 %p, ptr2: %p\n",b,b1);
    void *ptr2 = alloc(3000);
   printf("ptr2: %p\n", ptr2);
 }
@@ -42,7 +45,7 @@ int main ()
     struct block *b = (struct block *)((char *)ptr - sizeof(struct block));
     struct block *b1 = (struct block *)((char *)ptr1 - sizeof(struct block));
     printf("%p\n",next_pointer);
-    printf("ptr1: %p, ptr2: %p\n", b->next, b1->prev);
+    printf("ptr1: %p, ptr2: %p, next ptr 2: %p\n", b->next, b1->prev, b1 ->next);
     printf("ptr1: %ld, ptr2: %ld\n", b->size, b1->size);
     coalesc(ptr,ptr1);
     return 0;
