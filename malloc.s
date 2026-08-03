@@ -18,8 +18,9 @@
 
 .equ size, 0          /* the first 8 bytes represent the size of the block*/
 .equ is_occ, 8        /* represents if the block is occupied, 1 if it is occupied, 0 if it is free*/
-.equ next, 16         /* this points to the next block in the list*/
-.equ size_block, 24   /* this is the size of the metadata block, its useful in the free */
+.equ prev, 16
+.equ next, 24         /* this points to the next block in the list*/
+.equ size_block, 32   /* this is the size of the metadata block, its useful in the free */
 
 /* [  x19 |   x20  |  x21 |      ]
    [ size | is_occ | next | data ]  */
@@ -117,13 +118,15 @@ separate_the_block:
 
   str x7, [x2, #next]         /* the previous block now points to the metadata of the next */
 
+  str x2, [x7, #prev]
+
   add x0, x2, #size_block
   ret
 
 free:
   sub x1, x0 , #size_block    /* x0 is the pointer to the begining of the data file, so now x1 points to the begining of the metadata file */
 
-
+check_left:
   ldr x3,[x1, #prev]          /* x3 points to he begining of the metadata of the previous block */
   cmp x3, #0
   BEQ check_right
@@ -134,7 +137,6 @@ free:
   BEQ coalesc_left
 
 check_right:
-
   ldr x3, [x1, #next]         /* x3 points to he begining of the metadata of the next block */
   cmp x3, #0
   BEQ end_free
@@ -159,22 +161,41 @@ exact_fit:
   
 /* x2 is the previous block, x1 is the current */
 coalesc_left:
-  ldr x3, [x2,#size]          /* x3 has the size of the previous block */
-  ldr x4, [x1, #size]
-  add x4, x4, #size_block     /* we add the metadata size to the block size */
+  ldr x4, [x3,#size]          /* x3 has the size of the previous block */
+  ldr x5, [x1, #size]
+  add x5, x5, x4              /* we sum the two block sizes */
+  add x5, x5, #size_block
 
-  str x4, [x2, #size]
+  str x5, [x3, #size]         /* we store the new block size */
 
-  ldr x4, [x2, #next]
-  str x4, [x2, #next]
-  str x2, [x4, #prev] 
+  ldr x4, [x1, #next]         /* x4 has the next pointer block */
+  cmp x4, #0
+  BEQ skip_prev_update
 
+  str x4, [x3, #next]         /* the next of the prev now is the next of the current freeing block */
+  str x3, [x4, #prev]  
+  ret 
 
-  /* to be implemented */
+skip_prev_update:
+  ret
 
 
 coalesc_right:
-  /* to be implemented */
+  ldr x4, [x3, #size]       /* x3 has the size of the next block */
+  ldr x5, [x1, #size]       
+  add x5, x5, x4            /* sum of the two block sizes */
+  add x5, x5, #size_block
+
+  str x5, [x1, #size]
+
+  ldr x4, [x3, #next]
+  str x4, [x1, #next]
+  cmp x4, #0                
+  BEQ skip_prev_update
+
+  str x1, [x4, #prev]
+  ret
+  
   
 
 
