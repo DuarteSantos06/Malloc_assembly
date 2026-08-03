@@ -7,7 +7,6 @@
 .equ error_args_value, 1
 
 
-.equ block_size, 24 /* size of a block metadata*/
 
 /*
   struct block{
@@ -120,10 +119,33 @@ separate_the_block:
 
   add x0, x2, #size_block
   ret
+
 free:
   sub x1, x0 , #size_block    /* x0 is the pointer to the begining of the data file, so now x1 points to the begining of the metadata file */
 
-  mov x2, #0
+
+  ldr x3,[x1, #prev]          /* x3 points to he begining of the metadata of the previous block */
+  cmp x3, #0
+  BEQ check_right
+
+  ldr x4,[x3, #is_occ]        /* load the value on offset is_occ */
+
+  cmp x4, #0                  /* if it is not occupied we coalesc the blocks */
+  BEQ coalesc_left
+
+check_right:
+
+  ldr x3, [x1, #next]         /* x3 points to he begining of the metadata of the next block */
+  cmp x3, #0
+  BEQ end_free
+
+  ldr x4, [x3, #is_occ]       /* load the value on offset is_occ */
+
+  cmp x4, #0                  /* if it is not occupied we coalesc the blocks */
+  BEQ coalesc_right
+
+end_free:
+  mov x2, #0    
   str x2, [x1, #is_occ]
 
   ret
@@ -134,6 +156,25 @@ exact_fit:
   str x15, [x2, #is_occ]
   add x0, x2, #size_block
   ret
+  
+/* x2 is the previous block, x1 is the current */
+coalesc_left:
+  ldr x3, [x2,#size]          /* x3 has the size of the previous block */
+  ldr x4, [x1, #size]
+  add x4, x4, #size_block     /* we add the metadata size to the block size */
+
+  str x4, [x2, #size]
+
+  ldr x4, [x2, #next]
+  str x4, [x2, #next]
+  str x2, [x4, #prev] 
+
+
+  /* to be implemented */
+
+
+coalesc_right:
+  /* to be implemented */
   
 
 
