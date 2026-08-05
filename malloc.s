@@ -7,20 +7,21 @@
 .equ error_args_value, 1
 
 
-.equ block_size, 24 /* size of a block metadata*/
 
 /*
   struct block{
     size_t size,
     int is_occ,
+    block *prev
     block *next
   }
 */
 
 .equ size, 0          /* the first 8 bytes represent the size of the block*/
 .equ is_occ, 8        /* represents if the block is occupied, 1 if it is occupied, 0 if it is free*/
-.equ next, 16         /* this points to the next block in the list*/
-.equ size_block, 24   /* this is the size of the metadata block, its useful in the free */
+.equ prev, 16
+.equ next, 24         /* this points to the next block in the list*/
+.equ size_block, 32   /* this is the size of the metadata block, its useful in the free */
 
 /* [  x19 |   x20  |  x21 |      ]
    [ size | is_occ | next | data ]  */
@@ -53,14 +54,15 @@ initiate_metadata_block:
   ldr x1, =head_ptr
   str x0, [x1]
 
-  mov x9, #4072        /* the metadata block size doen't count*/
-  str x9, [x0, #size]    /* store the value in x19 register (size) in the memory address of x0 + size */
+  mov x5, #4096           /* 4096 is the first request when this program is initialized */
+  sub x9, x5, #size_block   /* we have to subtract the size block because metadata size doesn't count */
+  str x9, [x0, #size]       /* store the value in x19 register (size) in the memory address of x0 + size */
 
-  mov x10, #0             /* it is set to 0  because there is no data there */
-  str x10, [x0, #is_occ]  /* store the value in x20 register (is_occ) in the memory addres of x0 + is_occ */
+  mov x10, #0               /* it is set to 0  because there is no data there */
+  str x10, [x0, #is_occ]    /* store the value in x20 register (is_occ) in the memory addres of x0 + is_occ */
 
-  mov x11, #0             /* it is 0/null because it's the only block we have right now */
-  str x11, [x0, #next]    /* store the value in x21 register (next) in the memory address of x0 + next */
+  mov x11, #0               /* it is 0/null because it's the only block we have right now */
+  str x11, [x0, #next]      /* store the value in x21 register (next) in the memory address of x0 + next */
 
   ret
 
@@ -100,7 +102,7 @@ see_if_size_to_allocate_is_much_less_than_the_size_of_the_block:
 separate_the_block: 
   mov x6, x3                  /* x6 has the original size of the block */
   add x15, x4, #size_block
-  add x7, x2, x4              /* x7 now points to the end of the new block */
+  add x7, x2, x15              /* x7 now points to the end of the new block */
 
   mov x15, #1
   str x15, [x2, #is_occ]      /* we set the block to occupied */
@@ -118,12 +120,36 @@ separate_the_block:
 
   str x7, [x2, #next]         /* the previous block now points to the metadata of the next */
 
+  str x2, [x7, #prev]
+
   add x0, x2, #size_block
   ret
+
 free:
   sub x1, x0 , #size_block    /* x0 is the pointer to the begining of the data file, so now x1 points to the begining of the metadata file */
 
-  mov x2, #0
+check_left:
+  ldr x3,[x1, #prev]          /* x3 points to he begining of the metadata of the previous block */
+  cmp x3, #0
+  BEQ check_right
+
+  ldr x4,[x3, #is_occ]        /* load the value on offset is_occ */
+
+  cmp x4, #0                  /* if it is not occupied we coalesc the blocks */
+  BEQ coalesc_left
+
+check_right:
+  ldr x3, [x1, #next]         /* x3 points to he begining of the metadata of the next block */
+  cmp x3, #0
+  BEQ end_free
+
+  ldr x4, [x3, #is_occ]       /* load the value on offset is_occ */
+
+  cmp x4, #0                  /* if it is not occupied we coalesc the blocks */
+  BEQ coalesc_right
+
+end_free:
+  mov x2, #0    
   str x2, [x1, #is_occ]
 
   ret
@@ -134,6 +160,45 @@ exact_fit:
   str x15, [x2, #is_occ]
   add x0, x2, #size_block
   ret
+  
+/* x2 is the previous block, x1 is the current */
+coalesc_left:
+  ldr x4, [x3,#size]          /* x3 has the size of the previous block */
+  ldr x5, [x1, #size]         /* x1 is the block we are freeing, so load its size to x5 */
+  add x5, x5, x4              /* sum the two block sizes */
+  add x5, x5, #size_block
+
+  str x5, [x3, #size]         /* store the new block size */
+
+  ldr x4, [x1, #next]         /* x4 has the next pointer block */
+  cmp x4, #0
+  BEQ skip_prev_update
+
+  str x4, [x3, #next]         /* the next of the prev now is the next of the current freeing block */
+  str x3, [x4, #prev]  
+  B end_free
+
+
+
+coalesc_right:
+  ldr x4, [x3, #size]       /* x3 has the size of the next block */
+  ldr x5, [x1, #size]       /* x1 is the block we are freeing, so load its size to x5 */
+  add x5, x5, x4            /* sum of the two block sizes */
+  add x5, x5, #size_block
+
+  str x5, [x1, #size]       /* x5 has the size of the current freeing block, plus the size of the next block and its store in the size of current block */
+
+  ldr x4, [x3, #next]       /* load on x4 the next of the next block */
+  str x4, [x1, #next]       /* next of the current freeing block points to x4*/
+  cmp x4, #0                /* if x4 is null (there won't be a next to this block), we go to skip_prev_update because we can't actualize a prev of a block that doesn't exist*/
+  BEQ skip_prev_update
+
+  str x1, [x4, #prev]
+  B end_free
+
+skip_prev_update:
+  B end_free
+  
   
 
 
