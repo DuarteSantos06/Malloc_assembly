@@ -126,6 +126,11 @@ separate_the_block:
   ret
 
 free:
+  cmp x0, #0
+  BNE put_pointer_at_the_begin_of_metadata
+  ret
+
+put_pointer_at_the_begin_of_metadata:
   sub x1, x0 , #size_block    /* x0 is the pointer to the begining of the data file, so now x1 points to the begining of the metadata file */
 
 check_left:
