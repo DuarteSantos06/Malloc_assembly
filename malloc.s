@@ -78,7 +78,7 @@ alloc_loop:
 see_if_size_is_enough:
   ldr x3, [x2, #size]     /* we load the value in x2 + size */ 
   cmp x3, x4              /* if the size asked is bigger than the size we have we go to dont fit */
-  BLT dont_fit
+  BLO dont_fit
 
   ldr x3, [x2, #is_occ]   /* we load the value in x2 + is_occ */
   cmp x3, #1              /* if it is 1 it is occupied so we go to branch occupied */
@@ -108,7 +108,7 @@ separate_the_block:
   str x15, [x2, #is_occ]      /* we set the block to occupied */
 
   mov x15, x4
-  str x15, [x2, #size]  /* we set the size block to the size we want */
+  str x15, [x2, #size]        /* we set the size block to the size we want */
 
   str x5, [x7, #size]         /* the size of the new block is the rest we didn't allocate */  
 
@@ -122,8 +122,15 @@ separate_the_block:
 
   str x2, [x7, #prev]
 
+
+  cmp x15, #0
+  BEQ end_separate_block
+  str x7,  [x15, #prev]
+
+end_separate_block:
   add x0, x2, #size_block
   ret
+
 
 free:
   cmp x0, #0
@@ -176,12 +183,13 @@ coalesc_left:
   str x5, [x3, #size]         /* store the new block size */
 
   ldr x4, [x1, #next]         /* x4 has the next pointer block */
-  cmp x4, #0
-  BEQ skip_prev_update
-
   str x4, [x3, #next]         /* the next of the prev now is the next of the current freeing block */
+  cmp x4, #0
+  BEQ end_free
+
   str x3, [x4, #prev]  
-  B end_free
+  mov x1,x3                   /* we gotta mov x3 to x1 because in check right x1 is the block evaluated*/
+  B check_right
 
 
 
@@ -196,14 +204,11 @@ coalesc_right:
   ldr x4, [x3, #next]       /* load on x4 the next of the next block */
   str x4, [x1, #next]       /* next of the current freeing block points to x4*/
   cmp x4, #0                /* if x4 is null (there won't be a next to this block), we go to skip_prev_update because we can't actualize a prev of a block that doesn't exist*/
-  BEQ skip_prev_update
+  BEQ end_free
 
   str x1, [x4, #prev]
   B end_free
 
-skip_prev_update:
-  B end_free
-  
   
 
 

@@ -1,3 +1,5 @@
 malloc
 malloc.o
 .Ds_Store
+tests
+tests.c
